@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+  <script src="js/main.js"></script>
+    <style>
+    
+.h1{
+	font-family: "sans-serif";
+}
+    .bar {
+  fill: steelblue;
+}
+
+.bar:hover {
+  fill: rgb(240, 0, 127);
+}
+
+.bar2 {
+  fill: red;
+}
+
+.bar2:hover {
+  fill: "rgb(240, 0, 127)";
+}
+.axis {
+  font: 10px sans-serif;
+}
+
+.axis path,
+
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.bartext {
+	fill: black;
+	font-weight: 100%;
+	font-size : .6em;
+}
+
+.text {
+	fill: black;
+	font-size : 36px;
+	font-weight: bold;
+	
+}
+
+.maintext{
+	fill: black;
+	font-size: 30px;
+}
+
+    </style>
+    <script type="text/javascript">  
+      function draw(geo_data) {
+        "use strict";
+        
+		var margin = 200,
+            width = 1350 - margin,
+            height = 660 - margin;
+
+        var svg = d3.select("body")
+            .append("svg")
+            .attr("width", width + margin)
+            .attr("height", height + margin)
+            .append('g')
+            .attr('class', 'map');
+            
+
+        var projection = d3.geo.mercator()
+                               .scale(400)
+                               .translate([width / 1.22, height / 1.05]);
+                               
+        var path = d3.geo.path().projection(projection);
+        
+        var map = svg.selectAll('path')
+                     .data(geo_data.features)
+                     .enter()
+                     .append('path')
+                     .attr('d', path)
+                     .style('fill', 'lightBlue')
+                     .style('stroke', 'black')
+                     .style('stroke-width', 0.5)
+                     .attr("transform", function(d) {
+	               		 return "rotate(8.5)";
+	               		 });
+
+
+        function plot_points(data) {
+            
+            function agg_city(leaves) {
+                var total = d3.sum(leaves, function(d) {
+                    return d['job_counter'];
+                });
+
+                var coords = leaves.map(function(d) {
+                    return projection([+d.job_long, +d.job_lat]);
+                });
+
+                var center_x = d3.mean(coords, function(d) {
+                    return d[0];
+                });
+
+                var center_y = d3.mean(coords, function(d) {
+                    return d[1];
+                });
+
+                return {
+                  'job_counter' : total,
+                  'x' : center_x,
+                  'y' : center_y
+                };
+            }
+
+
+            var nested = d3.nest()
+                           .key(function(d) {
+                              return d['job_city'];
+                           })
+                           .rollup(agg_city)
+                           .entries(data);
+
+            var nr_jobs_max = d3.max(nested, function(d) {
+                return d.values['job_counter'];
+            });
+
+            var radius = d3.scale.sqrt()
+                           .domain([0, 10]) //nr_jobs_max
+                           .range([0, 20]);
+                           
+			var div = d3.select("body").append("div")	
+    				.attr("class", "tooltip")				
+    				.style("opacity", 0);
+    				
+            svg.append('g')
+               .attr("class", "bubble")
+               .selectAll("circle")
+               .data(nested)
+               .enter()
+               .append("circle")
+               .attr('cx', function(d) { return d.values['x']; })
+               .attr('cy', function(d) { return d.values['y']; })
+               .attr('r', function(d) {
+                    return radius(d.values['job_counter']);
+               }) 
+               .attr('fill', 'rgb(240, 0, 127)')
+               .attr('stroke', 'black')
+               .attr('stroke-width', 0.7)
+               .attr('opacity', 0.5)
+               .attr("transform", function(d) {
+	               		 return "rotate(8.5)";
+	               		 });
+	               		 
+            var width_ell=800;
+			var rad=100;
+			var pos_x=width_ell-rad;
+			var pos_y=120;
+			var pos_y2=pos_y+27;
+			svg.append("ellipse")       
+				.attr("cx", pos_x)
+				.attr("cy", pos_y)
+				.attr("rx", rad)
+				.attr("ry", rad)
+				.style("stroke", "grey")
+                .attr('stroke-width', 0.7)
+                .style("fill", "rgb(255,63,164)")
+                .style("opacity",0.7);
+
+			
+			svg.append("ellipse")       
+				.attr("cx", pos_x)
+				.attr("cy", pos_y)
+				.attr("rx", rad-rad/3)
+				.attr("ry", rad-rad/3)
+				//.style("stroke", "grey")
+                .attr('stroke-width', 0.7)
+				.style("fill", "rgb(255,165,212)");
+			
+			svg.append("ellipse")       
+				.attr("cx", pos_x)
+				.attr("cy", pos_y)
+				.attr("rx", rad-rad/3*2)
+				.attr("ry", rad-rad/3*2)
+				//.style("stroke", "grey")
+                .attr('stroke-width', 0.7)
+				.style("fill", "rgb(255,216,236)")
+				.style("opacity",0.5);
+				
+			var total_jobs = d3.sum(data, function(d) {
+                    return d['job_counter'];
+                });
+                
+			svg.append("g")
+			      .attr("transform", "translate(" + pos_x  + "," + pos_y+ ")")			      //.call(yAxis1)
+			      .append("text")	
+			      .attr("text-anchor", "middle")		      
+			      .text(total_jobs + " jobs")
+			      .attr("fill", "black")
+			      .style("font-size",30)
+			      .style("font-weight","bold")
+			      .style("font-family","sans-serif");
+			
+			svg.append("g")
+			      .attr("transform", "translate(" + pos_x  + "," + pos_y2+ ")")			      //.call(yAxis1)
+			      .append("text")	
+			      .attr("text-anchor", "middle")		      
+			      .text("found")
+			      .attr("fill", "black")
+			      .style("font-size",28)
+			      .style("font-weight","bold")
+			      .style("font-family","sans-serif");
+			
+			svg.append("g")
+			      .attr("transform", "translate(" + 1140  + "," + 480 + ")")			      //.call(yAxis1)
+			      .append("text")	
+			      .attr("text-anchor", "middle")		      
+			      .text("Thanks to http://careers.stackoverflow.com/ to let me scrape her gently.")
+			      .attr("fill", "black")
+			      .style("font-size",11)
+			      .style("font-weight","bold")
+			      .style("font-family","sans-serif");
+        }
+		
+		function plot_chart(error,data2) {
+			
+			
+			var margin1 = {top1: 300, right1: 180, bottom1: 180, left1: 550},
+	    	width1 = 1150 - margin1.left1 - margin1.right1,
+	    	height1 = 930 - margin1.top1 - margin1.bottom1;
+	    
+			svg.append("svg")
+			    .attr("width", width1 + margin1.left1 + margin1.right1)
+			    .attr("height", height1+ margin1.top1 + margin1.bottom1)
+			  	.append("g")
+			    .attr("transform", "translate(" + margin1.left1 + "," + margin1.top1 + ")");
+			
+			svg.append("rect")       // attach a rectangle
+			    .attr("x", margin1.left1-30)         // position the left of the rectangle
+			    .attr("y", 280)          // position the top of the rectangle
+			    .attr("height", 225)    // set the height
+			    .attr("width", 380)     // set the width
+			    .attr("rx", 10)         // set the x corner curve radius
+			    .attr("ry", 10)        // set the y corner curve radius
+				.style("stroke", "grey")
+				.style("fill", "white");
+				
+			var x1 = d3.scale.ordinal()
+			    .rangeRoundBands([margin1.left1, margin1.left1*1.6], 0.2);
+			
+			var y1 = d3.scale.linear()
+			    .range([height1, margin1.top1]);
+			
+			var xAxis1 = d3.svg.axis()
+			    .scale(x1)
+			    .orient("bottom");
+			
+			var yAxis1 = d3.svg.axis()
+			    .scale(y1)
+			    .orient("left")
+			    .ticks(10);
+			    
+			  x1.domain(data2.map(function(d) { 
+			  	return d.language; 
+			  	}));
+			  	
+			  	
+			  y1.domain([0, d3.max(data2, function(d) { 
+			  	return d.frequency; 
+			  	})]);
+			
+			  svg.append("g")
+			      .attr("class", "x axis")
+			      .attr("transform", "translate(0," + height1 + ")")
+			      //.attr("transform", "rotate(-65)")
+			      .call(xAxis1)
+			      .selectAll("text")	
+	            	.style("text-anchor", "end")
+	            	.attr("dx", "-.8em")
+	            	.attr("dy", ".15em")
+	            	.style("font-weight","bold")
+	            	.attr("transform", function(d) {
+	               		 return "rotate(-45)";
+	               		});
+			
+			  svg.append("g")
+			      .attr("transform", "translate(" + 850  + "," + 310 + ")")
+			      .attr("class", "y axis")
+			      //.call(yAxis1)
+			      .append("text")
+			     // .attr("transform", "rotate(-90)")
+			      //.attr("y", 10)
+			      //.attr("dy", 20)
+			      .style("text-anchor", "end")
+			      .text("Most wanted programming skills")
+			      .style("font-size",12)
+			      .style("font-weight","bold");
+			
+			  svg.selectAll(".bar")
+			      .data(data2)
+				  .enter().append("rect")
+				  .style("stroke", "grey")
+			      .attr("class", "bar")
+			      .attr("x", function(d) { return x1(d.language); })
+			      .attr("width", x1.rangeBand())
+			      .attr("y", function(d) { return y1(d.frequency); })
+			      .attr("height", function(d) { return height1 - y1(d.frequency); })
+			      .append("text")
+			      .attr("text", function(d) {return y1(d.frequency);});
+			      
+			  svg.selectAll(".bartext")
+				.data(data2)
+				.enter()
+				.append("text")
+				.attr("class", "bartext")
+				.attr("text-anchor", "middle")
+				.attr("fill", "black")
+				.attr("x", function(d) { return x1(d.language)+x1.rangeBand()/2; })
+				.attr("y", function(d) { return y1(d.frequency)-5; })
+				.text(function(d) { return d.frequency;})
+				.style("font-family","sans-serif")
+			    .style("font-weight","bold");
+			
+			};
+	    /*    		
+		function plot_text(conteggio) {
+
+			var width_ell=800;
+			var rad=100;
+			var pos_x=width_ell-rad;
+			var pos_y=120;
+			var pos_y2=pos_y+25;
+			svg.append("ellipse")       
+				.attr("cx", pos_x)
+				.attr("cy", pos_y)
+				.attr("rx", rad)
+				.attr("ry", rad)
+				.style("stroke", "grey")
+               .attr('stroke-width', 0.7)
+               .style("fill", "rgb(255,63,164)")
+               .style("opacity",0.7);
+
+			
+			svg.append("ellipse")       
+				.attr("cx", pos_x)
+				.attr("cy", pos_y)
+				.attr("rx", rad-rad/3)
+				.attr("ry", rad-rad/3)
+				//.style("stroke", "grey")
+                .attr('stroke-width', 0.7)
+				.style("fill", "rgb(255,165,212)");
+			
+			svg.append("ellipse")       
+				.attr("cx", pos_x)
+				.attr("cy", pos_y)
+				.attr("rx", rad-rad/3*2)
+				.attr("ry", rad-rad/3*2)
+				//.style("stroke", "grey")
+                .attr('stroke-width', 0.7)
+				.style("fill", "rgb(255,216,236)")
+				.style("opacity",0.5);
+				
+			var total_jobs = d3.sum(conteggio, function(d) {
+                    return d['job_counter'];
+                });
+			svg.append("g")
+			      .attr("transform", "translate(" + pos_x  + "," + pos_y+ ")")			      //.call(yAxis1)
+			      .append("text")	
+			      .attr("text-anchor", "middle")		      
+			      .text(total_jobs + " jobs")
+			      .attr("fill", "black")
+			      .style("font-size",30)
+			      .style("font-weight","bold");
+			
+			svg.append("g")
+			      .attr("transform", "translate(" + pos_x  + "," + pos_y2+ ")")			      //.call(yAxis1)
+			      .append("text")	
+			      .attr("text-anchor", "middle")		      
+			      .text("found")
+			      .attr("fill", "black")
+			      .style("font-size",28)
+			      .style("font-weight","bold");
+		};
+		*/
+		d3.json("python/get_language_arg.py?all", plot_points);
+		d3.json("python/get_hist.py?all", plot_chart);
+		//d3.json("python/get_language_arg.py?all",plot_text);
+		
+		$(document).ready(function(){
+    		$("#1").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="all";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?all", plot_chart);
+        		//d3.json("python/get_language_arg.py?all",plot_text);
+    			});
+    		$("#2").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="python";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?python", plot_chart);
+        		//d3.json("python/get_language_arg.py?python",plot_text);
+    			});
+    		$("#3").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="r";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?r", plot_chart);
+        		//d3.json("python/get_language_arg.py?r",plot_text);
+    			});
+    		$("#4").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="javascript";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?javascript", plot_chart);
+        		//d3.json("python/get_language_arg.py?javascript",plot_text);
+    			});
+    		$("#5").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="Hadoop";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?hadoop", plot_chart);
+        		//d3.json("python/get_language_arg.py?hadoop",plot_text);
+    			});
+    		$("#6").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="matlab";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?matlab", plot_chart);
+        		//d3.json("python/get_language_arg.py?matlab",plot_text);
+    			});
+    		$("#7").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="perl";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?perl", plot_chart);
+        		//d3.json("python/get_language_arg.py?perl",plot_text);
+    			});
+    		$("#8").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="java";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?java", plot_chart);
+        		//d3.json("python/get_language_arg.py?java",plot_text);
+    			});
+    		$("#9").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="ruby";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?ruby", plot_chart);
+        		//d3.json("python/get_language_arg.py?ruby",plot_text);
+    			});
+    		$("#10").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="linux";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?linux", plot_chart);
+        		//d3.json("python/get_language_arg.py?linux",plot_text);
+    			});
+    		$("#11").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="scala";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?scala", plot_chart);
+        		//d3.json("python/get_language_arg.py?scala",plot_text);
+    			});
+    		$("#12").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="aws";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?aws", plot_chart);
+        		//d3.json("python/get_language_arg.py?aws",plot_text);
+    			});
+    		$("#13").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="github";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?github", plot_chart);
+        		//d3.json("python/get_language_arg.py?github",plot_text);
+    			});
+    		$("#14").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="php";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?php", plot_chart);
+        		//d3.json("python/get_language_arg.py?php",plot_text);
+    			});
+    		$("#15").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="linux";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?linux", plot_chart);
+        		//d3.json("python/get_language_arg.py?linux",plot_text);
+    			});
+    		$("#16").click(function(){
+    			var path ="python/get_language_arg.py?";
+        		var language="spark";
+        		var newpath=path+language;
+        		d3.selectAll("circle").remove();
+        		d3.json(newpath, plot_points);
+        		d3.selectAll(".bar").remove();
+        		d3.selectAll("text").remove();
+        		d3.selectAll("rect").remove();
+        		d3.selectAll("ellipse").remove();
+        		d3.json("python/get_hist.py?spark", plot_chart);
+        		//d3.json("python/get_language_arg.py?spark",plot_text);
+    			});
+			});
+			
+			
+      };
+      </script>
+
+
+  </head>
+<body>
+	<h1>Which cities in the world are in need of a Data Scientist on April 5th 2015?</h1>
+	<div id="buttns"> Want to know where a programming language is hot? Click here -->
+		
+    <input id="1"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Any" 
+    />
+    
+    <input id="2"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Python" 
+    />
+    
+    <input id="3"
+    	   name="UpdateButton" 
+           type="button" 
+           value="R" 
+    />
+    
+    <input id="6"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Matlab" 
+    />
+    
+    <input id="4"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Javascript" 
+    />
+    
+    <input id="5"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Hadoop" 
+    />
+    
+    <input id="7"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Perl" 
+    />
+    
+    <input id="8"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Java" 
+    />
+    
+    <input id="9"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Ruby" 
+    />
+    
+    <input id="10"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Linux" 
+    />
+    
+    <input id="11"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Scala" 
+    />
+    
+    <input id="12"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Aws" 
+    />
+    
+    <input id="13"
+    	   name="UpdateButton" 
+           type="button" 
+           value="GitHub" 
+    />
+    
+    <input id="14"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Php" 
+    />
+    
+    <input id="15"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Linux" 
+    />
+    <input id="16"
+    	   name="UpdateButton" 
+           type="button" 
+           value="Spark" 
+    />
+</div>
+	<br/>
+  <script type="text/javascript"> d3.json("world_countries.json", draw);  </script>
+</body>
+</html>
